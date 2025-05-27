@@ -1,40 +1,32 @@
 from OpenGL.GL import *
+import numpy as np
 
-# Описание вершин и граней куба
-BLOCK_SCALE = 1.0  # Масштаб блока (можно изменить при необходимости)
-CUBE_VERTICES = (
-    (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, -1),  # Перед
-    (1, -1, 1), (1, 1, 1), (-1, 1, 1), (-1, -1, 1)        # Зад
-)
-CUBE_FACES = (
-    (0, 1, 2, 3),  # Перед
-    (5, 4, 7, 6),  # Зад
-    (0, 4, 5, 1),  # Право
-    (3, 7, 6, 2),  # Лево
-    (1, 5, 6, 2),  # Верх
-    (4, 0, 3, 7)   # Низ
-)
+class Block:
+    BLOCK_TYPES = {
+        "grass": (0.0, 1.0, 0.0),
+        "dirt": (0.5, 0.3, 0.1),
+        "stone": (0.5, 0.5, 0.5)
+    }
+    VERTICES = (
+        (1, -1, -1), (1, 1, -1), (-1, 1, -1), (-1, -1, -1),
+        (1, -1, 1), (1, 1, 1), (-1, 1, 1), (-1, -1, 1)
+    )
+    FACES = (
+        (0, 1, 2, 3), (5, 4, 7, 6), (0, 4, 5, 1),
+        (3, 7, 6, 2), (1, 5, 6, 2), (4, 0, 3, 7)
+    )
 
-def draw_block(x, y, z, block_type):
-    """Рендеринг блока с цветом в зависимости от типа."""
-    glPushMatrix()
-    glTranslatef(x * BLOCK_SCALE, y * BLOCK_SCALE, z * BLOCK_SCALE)
-    
-    if block_type == "grass":
-        glColor3f(0, 1, 0)  # Зелёный для травы
-    elif block_type == "dirt":
-        glColor3f(0.5, 0.3, 0.1)  # Коричневый для земли
-    else:
-        glColor3f(0.5, 0.5, 0.5)  # Серый для неизвестного типа
-    
-    glBegin(GL_QUADS)
-    for face in CUBE_FACES:
-        for vertex in face:
-            glVertex3fv(CUBE_VERTICES[vertex])
-    glEnd()
-    
-    glPopMatrix()
+    def __init__(self, block_type):
+        self.type = block_type
+        self.color = self.BLOCK_TYPES.get(block_type, (0.5, 0.5, 0.5))
 
-def get_block_type(y, height):
-    """Определяет тип блока по высоте."""
-    return "grass" if y == height - 1 else "dirt"
+    @staticmethod
+    def get_vertex_data():
+        vertex_data = []
+        for face in Block.FACES:
+            for vertex in face:
+                vertex_data.extend(Block.VERTICES[vertex])
+        return vertex_data
+
+    def get_color(self):
+        return self.color

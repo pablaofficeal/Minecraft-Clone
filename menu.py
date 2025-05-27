@@ -1,7 +1,8 @@
 from OpenGL.GL import *
-from OpenGL.GLU import *
-from OpenGL.GLUT import glutBitmapCharacter, GLUT_BITMAP_HELVETICA_18
+from OpenGL.GL.shaders import compileShader, compileProgram
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT
+import numpy as np
+import ctypes
 
 class Menu:
     def __init__(self):
@@ -10,41 +11,81 @@ class Menu:
             {"text": "Settings", "x": SCREEN_WIDTH//2 - 100, "y": SCREEN_HEIGHT//2 + 20, "w": 200, "h": 50},
             {"text": "Exit", "x": SCREEN_WIDTH//2 - 100, "y": SCREEN_HEIGHT//2 + 90, "w": 200, "h": 50},
         ]
-        self.state = "main"  # "main" или "settings"
+        self.state = "main"
+        self.shader_program = self.setup_shaders()
+        self.vao = None
+        self.vbo = None
+        self.setup_buffers()
 
-    def draw_text(self, x, y, text):
-        """Рендеринг простого текста (заглушка)."""
-        glRasterPos2f(x, y)
-        for char in text:
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, ord(char))
+    def setup_shaders(self):
+        """Создание шейдеров для 2D-рендеринга."""
+        vertex_shader_source = """
+        #version 330 core
+        layout(location = 0) in vec2 aPos;
+        void main() {
+            gl_Position = vec4(aPos.x / %f - 1.0, 1.0 - aPos.y / %f, 0.0, 1.0);
+        }
+        """ % (SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)
+
+        fragment_shader_source = """
+        #version 330 core
+        out vec4 FragColor;
+        uniform vec3 buttonColor;
+        void main() {
+            FragColor = vec4(buttonColor, 1.0);
+        }
+        """
+
+        vertex_shader = compileShader(vertex_shader_source, GL_VERTEX_SHADER)
+        fragment_shader = compileShader(fragment_shader_source, GL_FRAGMENT_SHADER)
+        shader_program = compileProgram(vertex_shader, fragment_shader)
+        
+        glDeleteShader(vertex_shader)
+        glDeleteShader(fragment_shader)
+        
+        return shader_program
+
+    def setup_buffers(self):
+        """Создание VAO и VBO для кнопок."""
+        vertex_data = []
+        for button in self.buttons:
+            x, y, w, h = button["x"], button["y"], button["w"], button["h"]
+            vertex_data.extend([
+                x, y, x + w, y, x + w, y + h,
+                x, y, x + w, y + h, x, y + h
+            ])
+        
+        vertex_data = np.array(vertex_data, dtype=np.float32)
+        
+        self.vao = glGenVertexArrays(1)
+        glBindVertexArray(self.vao)
+        
+        self.vbo = glGenBuffers(1)
+        glBindBuffer(GL_ARRAY_BUFFER, self.vbo)
+        glBufferData(GL_ARRAY_BUFFER, vertex_data.nbytes, vertex_data, GL_STATIC_DRAW)
+        
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * 4, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(0)
+        
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        glBindVertexArray(0)
 
     def render(self):
         """Рендеринг меню."""
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-        glOrtho(0, SCREEN_WIDTH, SCREEN_HEIGHT, 0, -1, 1)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
-
-        if self.state == "main":
-            # Рендеринг кнопок
-            for button in self.buttons:
-                x, y, w, h = button["x"], button["y"], button["w"], button["h"]
-                # Фон кнопки
-                glColor3f(0.5, 0.5, 0.5)  # Серый фон
-                glBegin(GL_QUADS)
-                glVertex2f(x, y)
-                glVertex2f(x + w, y)
-                glVertex2f(x + w, y + h)
-                glVertex2f(x, y + h)
-                glEnd()
-                # Текст кнопки
-                glColor3f(1, 1, 1)  # Белый текст
-                self.draw_text(x + 20, y + 35, button["text"])
-        elif self.state == "settings":
-            # Заглушка для настроек
-            glColor3f(1, 1, 1)
-            self.draw_text(SCREEN_WIDTH//2 - 100, SCREEN_HEIGHT//2, "Settings: Work in Progress")
+        glUseProgram(self.shader_program)
+        
+        glBindVertexArray(self.vao)
+        
+        for i, button in enumerate(self.buttons):
+            if self.state == "main":
+                glUniform3f(glGetUniformLocation(self.shader_program, "buttonColor"), 0.5, 0.5, 0.5)
+                glDrawArrays(GL_TRIANGLES, i * 6, 6)
+            elif self.state == "settings" and i == 0:
+                glUniform3f(glGetUniformLocation(self.shader_program, "buttonColor"), 0.0, 0.0, 0.0)
+                glDrawArrays(GL_TRIANGLES, 0, 6)
+        
+        glBindVertexArray(0)
+        glUseProgram(0)
 
     def handle_click(self, x, y):
         """Обработка клика мыши."""
