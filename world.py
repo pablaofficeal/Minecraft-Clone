@@ -42,9 +42,9 @@ class World:
         glUniformMatrix4fv(view_loc, 1, GL_FALSE, view_matrix)
         glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection_matrix)
         
-        for chunk in self.chunks.values():
+        for hunk in self.chunks.values():
             model = np.identity(4, dtype=np.float32)
             glUniformMatrix4fv(model_loc, 1, GL_FALSE, model)
-            chunk.render(self.shader_program)
+            hunk.render(self.shader_program)
         
         glUseProgram(0)
